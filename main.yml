@@ -8,8 +8,9 @@ Parameters:
     Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
 
 Resources:
+
   SecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+    Type: "AWS::EC2::SecurityGroup"
     Properties:
       GroupDescription: !Sub 'Internal Security group for ${AWS::StackName}'
       SecurityGroupIngress:
@@ -24,7 +25,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Ref AWS::StackName
-
   InstanceRole:
     Type: "AWS::IAM::Role"
     Properties:
@@ -41,14 +41,11 @@ Resources:
       Tags:
         - Key: Name
           Value: !Ref AWS::StackName
-
   InstanceProfile:
     Type: "AWS::IAM::InstanceProfile"
     Properties:
       Roles:
         - Ref: InstanceRole
-
-
   Instance:
     Type: AWS::EC2::Instance
     CreationPolicy:
@@ -60,8 +57,8 @@ Resources:
         config:
           packages:
             yum:
-              wget: [ ]
-              unzip: [ ]
+              wget: []
+              unzip: []
     Properties:
       ImageId: !Ref EC2AMI
       InstanceType: !Ref EC2InstanceType
@@ -117,7 +114,15 @@ Resources:
           sleep 1; su - ec2-user -c "/tmp/install_script.sh" 
 
           # Signal to CloudFormation that the instance is ready
-          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --region ${AWS::Region} --resource Instance
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --region ${AWS::Region} --resource Instance 
+
       Tags:
         - Key: Name
           Value: !Ref AWS::StackName
+
+Outputs:
+  InstanceEndpoint:
+    Description: The DNS name for the created instance
+    Value: !Sub "http://${Instance.PublicDnsName}:8080"
+    Export:
+      Name: InstanceEndpoint
