@@ -1,6 +1,4 @@
-# File tells CodeBuild how to build our application
 version: 0.2
-
 phases:
   install:
     runtime-versions:

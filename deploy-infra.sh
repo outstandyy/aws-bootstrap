@@ -1,27 +1,20 @@
-#!/bin/bash
-
 STACK_NAME=awsbootstrap
 REGION=us-east-1
 CLI_PROFILE=awsbootstrap
-
 EC2_INSTANCE_TYPE=t2.micro
 
-# Generate a personal access token with repo and admin:repo_hook
-#    permissions from https://github.com/settings/tokens
 GH_ACCESS_TOKEN=$(cat ~/.github/aws-bootstrap-access-token)
 GH_OWNER=$(cat ~/.github/aws-bootstrap-owner)
 GH_REPO=$(cat ~/.github/aws-bootstrap-repo)
 GH_BRANCH=master
 
-# This is a way to programmatically get the AWS account ID from the AWS CLI.
-AWS_ACCOUNT_ID=`aws sts get-caller-identity --profile awsbootstrap \
-  --query "Account" --output text`
-# S3 bucket names must be globally unique across all AWS customers.
-# Adding our account ID to the bucket name helps prevent name conflicts.
+AWS_ACCOUNT_ID=`aws sts get-caller-identity --profile awsbootstrap --query "Account" --output text`
 CODEPIPELINE_BUCKET="$STACK_NAME-$REGION-codepipeline-$AWS_ACCOUNT_ID"
 
+echo $CODEPIPELINE_BUCKET
+
 # Deploys static resources
-echo -e "\n\n=========== Deploying setup.yml ==========="
+echo "\n\n=========== Deploying setup.yml ==========="
 aws cloudformation deploy \
   --region $REGION \
   --profile $CLI_PROFILE \
@@ -29,11 +22,10 @@ aws cloudformation deploy \
   --template-file setup.yml \
   --no-fail-on-empty-changeset \
   --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides \
-    CodePipelineBucket=$CODEPIPELINE_BUCKET
+  --parameter-overrides CodePipelineBucket=$CODEPIPELINE_BUCKET
 
 # Deploy the CloudFormation template
-echo -e "\n\n=========== Deploying main.yml ==========="
+echo "\n\n=========== Deploying main.yml ==========="
 aws cloudformation deploy \
   --region $REGION \
   --profile $CLI_PROFILE \
@@ -49,7 +41,7 @@ aws cloudformation deploy \
     GitHubPersonalAccessToken=$GH_ACCESS_TOKEN \
     CodePipelineBucket=$CODEPIPELINE_BUCKET
 
-# If the deploy succeeded, show the DNS name of the created instance
+    # If the deploy succeeded, show the DNS name of the created instance
 if [ $? -eq 0 ]; then
   aws cloudformation list-exports \
     --profile awsbootstrap \
