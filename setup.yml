@@ -1,0 +1,28 @@
+# CodePipeline requires an S3 bucket to store artifacts built by CodeBuild.
+#  We chose to create this bucket outside of our main CloudFormation template because
+#  CloudFormation is unable to delete S3 buckets unless they’re empty.
+#  This limitation becomes very inconvenient during development, because
+#  you would have to delete the S3 bucket manually every time you tear down your CloudFormation stack.
+# Therefore, we like to put resources such as these in a separate CloudFormation template called setup.yml.
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  CodePipelineBucket:
+    Type: String
+    Description: 'The S3 bucket for CodePipeline artifacts.'
+
+Resources:
+  CodePipelineS3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Ref CodePipelineBucket
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
