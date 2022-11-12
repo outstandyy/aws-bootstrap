@@ -6,7 +6,7 @@ const message = 'Hello Cloud\n';
 const port = 8080;
 
 app.get('/', (req, res) => {
-	res.send(message);
+	res.send(`${message}; host: ${hostname()}:${port}`);
 });
 
 app.listen(port, () => console.log(`Server running at http://${hostname()}:${port}/`));
