@@ -342,7 +342,8 @@ Resources:
       TargetGroupARNs:
         - !Ref LoadBalancerTargetGroup
       MetricsCollection:
-        - Granularity: "1Minute"
+        -
+          Granularity: "1Minute"
           Metrics:
             - "GroupMaxSize"
             - "GroupInServiceInstances"
