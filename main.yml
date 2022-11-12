@@ -430,6 +430,7 @@ Resources:
             # Signal to CloudFormation that the instance is ready
             /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --region ${AWS::Region} --resource ${!LOGICAL_ID}
 
+
 Outputs:
 
   LBEndpoint:
