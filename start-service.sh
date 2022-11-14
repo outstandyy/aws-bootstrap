@@ -17,4 +17,4 @@ export INSTANCE_ID="`wget -q -O - http://169.254.169.254/latest/meta-data/instan
 
 export STACK_NAME=`aws --region $REGION ec2 describe-tags --filters "Name=resource-id,Values=${INSTANCE_ID}" "Name=key,Values=aws:cloudformation:stack-name" | jq -r ".Tags[0].Value"`
 
-npm run start
+npm run start 

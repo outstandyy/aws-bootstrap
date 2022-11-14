@@ -5,6 +5,13 @@ Parameters:
     Type: String
   EC2AMI:
     Type: String
+  Domain:
+    Type: String
+  SubDomain:
+    Type: String
+  Certificate:
+    Type: String
+    Description: 'An existing ACM certificate ARN for subdomain.domain'
 
 Resources:
 
@@ -15,12 +22,12 @@ Resources:
       GroupDescription: !Sub 'Internal Security group for ${AWS::StackName}'
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 8080
-          ToPort: 8080
+          FromPort: 8443
+          ToPort: 8443
           CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
+          FromPort: 443
+          ToPort: 443
           CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
           FromPort: 22
@@ -44,6 +51,8 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/CloudWatchFullAccess
         - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforAWSCodeDeploy
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
       Policies:
         - PolicyName: ec2DescribeTags
           PolicyDocument:
@@ -61,6 +70,16 @@ Resources:
     Properties:
       Roles:
         - Ref: InstanceRole
+
+  DNS:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !Sub '${Domain}.'
+      Name: !Sub '${SubDomain}.${Domain}.'
+      Type: A
+      AliasTarget:
+        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID
+        DNSName: !GetAtt LoadBalancer.DNSName
 
   VPC:
     Type: AWS::EC2::VPC
@@ -153,28 +172,30 @@ Resources:
         - Key: Name
           Value: !Ref AWS::StackName
 
-  LoadBalancerListener:
+  HTTPSLoadBalancerTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      TargetType: instance
+      Port: 8443
+      Protocol: HTTPS
+      VpcId: !Ref VPC
+      HealthCheckEnabled: true
+      HealthCheckProtocol: HTTPS
+      Tags:
+        - Key: Name
+          Value: !Ref AWS::StackName
+
+  HTTPSLoadBalancerListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       DefaultActions:
         - Type: forward
-          TargetGroupArn: !Ref LoadBalancerTargetGroup
+          TargetGroupArn: !Ref HTTPSLoadBalancerTargetGroup
       LoadBalancerArn: !Ref LoadBalancer
-      Port: 80
-      Protocol: HTTP
-
-  LoadBalancerTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      TargetType: instance
-      Port: 8080
-      Protocol: HTTP
-      VpcId: !Ref VPC
-      HealthCheckEnabled: true
-      HealthCheckProtocol: HTTP
-      Tags:
-        - Key: Name
-          Value: !Ref AWS::StackName
+      Certificates:
+        - CertificateArn: !Ref Certificate
+      Port: 443
+      Protocol: HTTPS
 
   ScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -203,7 +224,7 @@ Resources:
         LaunchTemplateId: !Ref InstanceLaunchTemplate
         Version: !GetAtt InstanceLaunchTemplate.LatestVersionNumber
       TargetGroupARNs:
-        - !Ref LoadBalancerTargetGroup
+        - !Ref HTTPSLoadBalancerTargetGroup
       MetricsCollection:
         -
           Granularity: "1Minute"
@@ -275,6 +296,12 @@ Resources:
 
               # Create log directory
               mkdir -p /home/ec2-user/app/logs
+
+              # Create a self-signed TLS certificate to communicate with the load balancer
+              mkdir -p /home/ec2-user/app/keys
+              cd /home/ec2-user/app/keys
+              openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj "/C=/ST=/L=/O=/CN=localhost" -keyout key.pem -out cert.pem
+
             EOF
 
             chown ec2-user:ec2-user /tmp/install_script.sh && chmod a+x /tmp/install_script.sh
@@ -295,9 +322,10 @@ Resources:
 
 Outputs:
 
-  LBEndpoint:
-    Description: The DNS name for the LB
-    Value: !Sub "http://${LoadBalancer.DNSName}:80"
+  HTTPSEndpoint:
+    Description: The DNS name for the stage
+    Value: !Sub "https://${DNS}"
+
   ScalingGroup:
     Description: The ScalingGroup for this stage
     Value: !Ref ScalingGroup
